@@ -1,44 +1,257 @@
-name: example-service
+name: chatwoot
+icon: chatwoot
 type: service
-icon: service
-title: Example Service
-update: manual
+title: Chatwoot
 scalable: true
 
 labels:
-- example
-- web
+- chatwoot
+- rails
 
 options:
-- version: '1.0'
-  tag: '1.29'
+- version: '4.17'
+  tag: 'v4.17.1'
   default: true
 
 endpoints:
-- name: http
+- name: web
   main: true
   ports:
   - name: http
-    number: 80
+    number: 3000
     protocol: http
     main: true
 
-env:
-- name: NGINX_VHOST_PRESET
-  value: html
-- name: NGINX_SERVER_ROOT
-  value: /var/www/html
+settings:
+- name: account_signup
+  title: Account signup
+  description: Set to false to disable public account signup or api_only to allow API signup only
+  default: 'false'
+  var: ENABLE_ACCOUNT_SIGNUP
+- name: default_locale
+  title: Default locale
+  default: en
+  var: DEFAULT_LOCALE
+- name: force_ssl
+  title: Force SSL
+  default: 'true'
+  var: FORCE_SSL
+- name: log_level
+  title: Log level
+  default: info
+  var: LOG_LEVEL
+- name: mailer_sender_email
+  title: Mailer sender
+  description: Sender address used for outbound Chatwoot email
+  default: Chatwoot <accounts@chatwoot.com>
+  var: MAILER_SENDER_EMAIL
+- name: rails_max_threads
+  title: Rails threads
+  default: '5'
+  var: RAILS_MAX_THREADS
+- name: sidekiq_concurrency
+  title: Sidekiq concurrency
+  default: '10'
+  var: SIDEKIQ_CONCURRENCY
 
-build:
-  dockerfile: Dockerfile
-  dockerignore: .dockerignore
-  connect: true
+env:
+- name: ACTIVE_STORAGE_SERVICE
+  value: local
+- name: FRONTEND_URL
+  value: 'https://{{service.primaryHost}}'
+- name: INSTALLATION_ENV
+  value: helm
+- name: NODE_ENV
+  value: production
+- name: RAILS_ENV
+  value: production
+- name: RAILS_LOG_TO_STDOUT
+  value: 'true'
+- name: SECRET_KEY_BASE
+  value: '{{secret_key_base}}'
+- name: ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY
+  value: '{{ar_primary_key}}'
+- name: ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY
+  value: '{{ar_deterministic_key}}'
+- name: ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT
+  value: '{{ar_key_derivation_salt}}'
+
+links:
+- name: db
+  title: PostgreSQL with pgvector
+  required: true
+  env:
+  - name: DATABASE_URL
+    value: '{{link.database.url}}'
+    secret: true
+  selectors:
+  - type: db
+    labels:
+    - postgres
+    - pgvector
+- name: redis
+  title: Redis
+  required: true
+  env:
+  - name: REDIS_URL
+    value: 'redis://:{{link.tokens.password}}@{{link.host}}:{{link.port}}/0'
+    secret: true
+  selectors:
+  - type: datastore
+    labels:
+    - redis
+- name: storage
+  title: Shared attachment storage
+  required: true
+  selectors:
+  - type: storage
+- name: sendmail
+  title: Mail transfer agent
+  required: false
+  env:
+  - name: SMTP_ADDRESS
+    value: '{{link.host}}'
+  - name: SMTP_PORT
+    value: '{{link.port}}'
+  - name: SMTP_ENABLE_STARTTLS_AUTO
+    value: 'false'
+  selectors:
+  - type: service
+    labels:
+    - smtpd
+
+tokens:
+- name: secret_key_base
+  generate:
+    regex: '[0-9a-f]{64}'
+- name: ar_primary_key
+  generate:
+    regex: '[A-Za-z0-9]{32}'
+- name: ar_deterministic_key
+  generate:
+    regex: '[A-Za-z0-9]{32}'
+- name: ar_key_derivation_salt
+  generate:
+    regex: '[A-Za-z0-9]{32}'
+
+volumes:
+- name: storage
+  title: Attachments
+  link: storage
+  shared: true
+  size: 20
+  path: /app/storage
+
+integrations:
+- name: variable
+  title: Additional Chatwoot environment variables
+  type: variable
+  required: false
+  multiple: true
+
+derivatives:
+- name: chatwoot-sidekiq
+  icon: chatwoot
+  title: Sidekiq
+  type: service
+  required: true
+  default: true
+  args:
+  - bundle
+  - exec
+  - sidekiq
+  - -C
+  - config/sidekiq.yml
+  helm:
+    values:
+    - name: command
+      value: []
+    - name: service.enabled
+      value: false
+    - name: containerPorts
+      value: []
+    - name: startupProbe
+      value: ''
+
+actions:
+- name: database_prepare
+  title: Prepare Chatwoot database
+  type: post_deploy
+  args:
+  - bundle
+  - exec
+  - rails
+  - db:chatwoot_prepare
+
+deployment:
+  strategy: rolling
+  minReady: 10s
+  progressDeadline: 15m
+  shutdownGracePeriod: 60s
 
 helm:
   name: wodby
-  source: oci://registry-1.docker.io/wodby/nginx
-  chart: oci://registry-1.docker.io/wodby/nginx
-  version: 0.2.0
+  source: oci://registry-1.docker.io/wodby/stateless
+  chart: oci://registry-1.docker.io/wodby/stateless
+  version: 0.2.1
+  valueMappings:
+    replicas: replicaCount
+    nameOverride: nameOverride
+    fullnameOverride: fullnameOverride
+    serviceAccountName: serviceAccount.name
+    serviceAccountCreate: serviceAccount.create
+    strategy: strategy
+    minReady: minReadySeconds
+    progressDeadline: progressDeadlineSeconds
+    shutdownGracePeriod: terminationGracePeriodSeconds
+  values:
+  - name: containerName
+    value: chatwoot
+  - name: containerPorts
+    value:
+    - name: http
+      containerPort: 3000
+      protocol: TCP
+  - name: command
+    value:
+    - docker/entrypoints/rails.sh
+  - name: args
+    value:
+    - bundle
+    - exec
+    - rails
+    - s
+    - -p
+    - '3000'
+    - -b
+    - 0.0.0.0
+  - name: startupProbe
+    value:
+      httpGet:
+        path: /health
+        port: http
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 60
+  - name: livenessProbe
+    value:
+      httpGet:
+        path: /health
+        port: http
+      initialDelaySeconds: 15
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+  - name: readinessProbe
+    value:
+      httpGet:
+        path: /api
+        port: http
+      initialDelaySeconds: 15
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 3
 
 workloads:
 - name: main
@@ -51,11 +264,16 @@ workloads:
     labels: commonLabels
     annotations: commonAnnotations
     volumes: extraVolumes
+    sidecars: extraContainers
   containers:
-  - name: nginx
-    image: wodby/nginx
-    build: true
+  - name: chatwoot
+    image: chatwoot/chatwoot
     helm:
       resources: resources
-      env: extraEnvVars
+      env: envVars
       mounts: extraVolumeMounts
+      image:
+        registry: image.registry
+        repository: image.repository
+        tag: image.tag
+        pullPolicy: image.pullPolicy
