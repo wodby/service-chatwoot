@@ -69,16 +69,12 @@ env:
   value: 'true'
 - name: SECRET_KEY_BASE
   value: '{{secret_key_base}}'
-  secret: true
 - name: ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY
   value: '{{ar_primary_key}}'
-  secret: true
 - name: ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY
   value: '{{ar_deterministic_key}}'
-  secret: true
 - name: ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT
   value: '{{ar_key_derivation_salt}}'
-  secret: true
 
 links:
 - name: db
