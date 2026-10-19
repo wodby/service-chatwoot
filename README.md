@@ -43,9 +43,11 @@ Chatwoot runs separate Rails web and Sidekiq processes. PostgreSQL with
 pgvector, Redis 7 or newer, and shared attachment storage are required. SMTP is
 optional but recommended for password resets and notifications.
 
-Wodby runs `rails db:chatwoot_prepare` after each web deployment. It generates
-the application secret and the three Active Record encryption keys when an app
-is created.
+The web container runs `rails db:chatwoot_prepare` before it starts the server:
+Chatwoot reads its installation settings from the database at boot, so a new
+app's database is loaded before the first start, and later deployments apply
+new migrations the same way. Wodby generates the application secret and the
+three Active Record encryption keys when an app is created.
 
 ## Object storage
 

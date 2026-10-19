@@ -173,16 +173,6 @@ derivatives:
     - name: startupProbe
       value: ''
 
-actions:
-- name: database_prepare
-  title: Prepare Chatwoot database
-  type: post_deploy
-  args:
-  - bundle
-  - exec
-  - rails
-  - db:chatwoot_prepare
-
 deployment:
   strategy: rolling
   minReady: 10s
@@ -217,14 +207,9 @@ helm:
     - docker/entrypoints/rails.sh
   - name: args
     value:
-    - bundle
-    - exec
-    - rails
-    - s
-    - -p
-    - '3000'
-    - -b
-    - 0.0.0.0
+    - sh
+    - -c
+    - bundle exec rails db:chatwoot_prepare && exec bundle exec rails s -p 3000 -b 0.0.0.0
   - name: startupProbe
     value:
       httpGet:
