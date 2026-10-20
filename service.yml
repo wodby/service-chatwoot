@@ -215,6 +215,10 @@ helm:
       httpGet:
         path: /health
         port: http
+        # FORCE_SSL redirects plain HTTP; Wodby's routes terminate TLS and send this header.
+        httpHeaders:
+        - name: X-Forwarded-Proto
+          value: https
       initialDelaySeconds: 30
       periodSeconds: 10
       timeoutSeconds: 5
@@ -224,6 +228,10 @@ helm:
       httpGet:
         path: /health
         port: http
+        # FORCE_SSL redirects plain HTTP; Wodby's routes terminate TLS and send this header.
+        httpHeaders:
+        - name: X-Forwarded-Proto
+          value: https
       initialDelaySeconds: 15
       periodSeconds: 15
       timeoutSeconds: 5
@@ -233,6 +241,9 @@ helm:
       httpGet:
         path: /api
         port: http
+        httpHeaders:
+        - name: X-Forwarded-Proto
+          value: https
       initialDelaySeconds: 15
       periodSeconds: 5
       timeoutSeconds: 5
