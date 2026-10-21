@@ -25,7 +25,8 @@ endpoints:
 settings:
 - name: account_signup
   title: Account signup
-  description: Set to false to disable public account signup or api_only to allow API signup only
+  description: Set to false to disable public account signup or api_only to 
+    allow API signup only
   default: 'false'
   var: ENABLE_ACCOUNT_SIGNUP
 - name: default_locale
@@ -183,7 +184,7 @@ helm:
   name: wodby
   source: oci://registry-1.docker.io/wodby/stateless
   chart: oci://registry-1.docker.io/wodby/stateless
-  version: 0.2.1
+  version: 0.3.0
   valueMappings:
     replicas: replicaCount
     nameOverride: nameOverride
@@ -209,7 +210,8 @@ helm:
     value:
     - sh
     - -c
-    - bundle exec rails db:chatwoot_prepare && exec bundle exec rails s -p 3000 -b 0.0.0.0
+    - bundle exec rails db:chatwoot_prepare && exec bundle exec rails s -p 3000 
+      -b 0.0.0.0
   - name: startupProbe
     value:
       httpGet:
