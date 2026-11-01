@@ -153,41 +153,6 @@ tokens:
   generate:
     regex: '[A-Z]{4}[a-z]{4}[0-9]{4}[!@#%_-]{4}[A-Za-z0-9!@#%_-]{16}'
 
-# Runs after the rollout, so the web container has already prepared the
-# database. Safe on every deployment: it creates the administrator only when no
-# super admin exists, and then it closes the onboarding page.
-actions:
-- name: create_admin
-  title: Create the first administrator
-  type: post_deploy
-  args:
-  - bundle
-  - exec
-  - rails
-  - runner
-  - |
-    email = ENV.fetch('CHATWOOT_ADMIN_EMAIL', '').strip.downcase
-    password = ENV.fetch('CHATWOOT_ADMIN_PASSWORD', '')
-    if SuperAdmin.exists?
-      puts 'A super admin already exists. No administrator created.'
-    elsif email.empty? || password.empty?
-      puts 'Warning: Admin email or the generated password is empty. No administrator created.'
-      exit
-    elsif User.exists?(email: email)
-      puts "Warning: #{email} already belongs to a user who is not a super admin. No administrator created."
-    else
-      AccountBuilder.new(
-        account_name: 'Chatwoot',
-        user_full_name: 'Administrator',
-        email: email,
-        user_password: password,
-        super_admin: true,
-        confirmed: true
-      ).perform
-      puts "Created the first administrator: #{email}"
-    end
-    Redis::Alfred.delete(Redis::Alfred::CHATWOOT_INSTALLATION_ONBOARDING)
-
 volumes:
 - name: storage
   title: Attachments
@@ -259,12 +224,43 @@ helm:
   - name: command
     value:
     - docker/entrypoints/rails.sh
+  # The server starts only after the database is prepared, the first
+  # administrator exists and the onboarding page is closed, so its first response
+  # is never that page. A failure here stops the container before it serves
+  # anything. The Sidekiq derivative replaces these args and does not run this.
   - name: args
     value:
     - sh
     - -c
-    - bundle exec rails db:chatwoot_prepare && exec bundle exec rails s -p 3000 
-      -b 0.0.0.0
+    - bundle exec ruby -e "$1" "$2" && exec bundle exec rails s -p 3000 -b 0.0.0.0
+    - sh
+    - |
+      # Holds a database lock, so web pods starting together take these steps one at a time.
+      require 'pg'
+      lock = PG.connect(ENV.fetch('DATABASE_URL'))
+      lock.exec('SELECT pg_advisory_lock(20261101)')
+      [['db:chatwoot_prepare'], ['runner', ARGV.fetch(0)]].each do |task|
+        system('bundle', 'exec', 'rails', *task) || exit(1)
+      end
+    - |
+      # Closes the onboarding page first, so no failure below can leave it open.
+      Redis::Alfred.delete(Redis::Alfred::CHATWOOT_INSTALLATION_ONBOARDING)
+      email = ENV.fetch('CHATWOOT_ADMIN_EMAIL', '').strip.downcase
+      if SuperAdmin.exists?
+        puts 'A super admin already exists. No administrator created.'
+      elsif User.exists?(email: email)
+        puts "Warning: #{email} already belongs to a user who is not a super admin. No administrator created."
+      else
+        AccountBuilder.new(
+          account_name: 'Chatwoot',
+          user_full_name: 'Administrator',
+          email: email,
+          user_password: ENV.fetch('CHATWOOT_ADMIN_PASSWORD', ''),
+          super_admin: true,
+          confirmed: true
+        ).perform
+        puts "Created the first administrator: #{email}"
+      end
   - name: startupProbe
     value:
       httpGet:

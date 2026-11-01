@@ -26,7 +26,7 @@ configuration for Chatwoot.
 | Service links | PostgreSQL with pgvector (`db`), required; Redis (`redis`), required; Shared attachment storage (`storage`), required; Mail transfer agent (`sendmail`), optional |
 | Application build | Not buildable from application source |
 | Helm | chart `oci://registry-1.docker.io/wodby/stateless`; version `0.2.1` |
-| Configuration and operations | 8 settings, 1 integration slots, 1 volumes, 1 actions |
+| Configuration and operations | 8 settings, 1 integration slots, 1 volumes, 0 actions |
 
 ## Use this service
 
@@ -43,7 +43,8 @@ Chatwoot runs separate Rails web and Sidekiq processes. PostgreSQL with
 pgvector, Redis 7 or newer, and shared attachment storage are required. SMTP is
 optional but recommended for password resets and notifications.
 
-The web container runs `rails db:chatwoot_prepare` before it starts the server:
+The web container runs `rails db:chatwoot_prepare` before it starts the server,
+one pod at a time:
 Chatwoot reads its installation settings from the database at boot, so a new
 app's database is loaded before the first start, and later deployments apply
 new migrations the same way. Wodby generates the application secret and the
@@ -51,16 +52,15 @@ three Active Record encryption keys when an app is created.
 
 ## First administrator
 
-Wodby creates the first super admin and the first Chatwoot account at the end of
-the deployment, so the app does not rely on Chatwoot's onboarding page and that
-page closes. Sign in at the app's main domain with **Admin email** and the
+Wodby creates the first super admin and the first Chatwoot account before the web
+server starts, so Chatwoot's onboarding page is never offered. Sign in at the app's main domain with **Admin email** and the
 `admin_password` token from **Configuration > Tokens**. No mail is needed.
 
 **Admin email** is a required setting. Replace its `admin@example.com`
 placeholder with your own address when you create the app, because Chatwoot sends
-password resets to it. The action runs on every deployment and creates nothing
-when a super admin already exists. An environment upgraded before anyone finished
-onboarding gets its administrator the same way. See `GUIDANCE.md`.
+password resets to it. This step runs each time a web container starts and creates
+nothing when a super admin already exists. An environment upgraded before anyone
+finished onboarding gets its administrator the same way. See `GUIDANCE.md`.
 
 ## Object storage
 
