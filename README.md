@@ -49,6 +49,14 @@ app's database is loaded before the first start, and later deployments apply
 new migrations the same way. Wodby generates the application secret and the
 three Active Record encryption keys when an app is created.
 
+## First administrator
+
+After the first deployment, open the app's main domain. Chatwoot redirects to
+`/installation/onboarding`, where the first person creates the super admin
+account and the first Chatwoot account. Finish this right away: the page is
+open to anyone who can reach the address until it is submitted. It does not
+depend on the **Account signup** setting or on mail delivery.
+
 ## Object storage
 
 The default profile stores attachments on the shared `/app/storage` volume.
