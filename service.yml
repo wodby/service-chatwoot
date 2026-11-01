@@ -2,6 +2,7 @@ name: chatwoot
 icon: chatwoot
 type: service
 title: Chatwoot
+guidance: GUIDANCE.md
 scalable: true
 
 labels:
