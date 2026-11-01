@@ -26,7 +26,7 @@ configuration for Chatwoot.
 | Service links | PostgreSQL with pgvector (`db`), required; Redis (`redis`), required; Shared attachment storage (`storage`), required; Mail transfer agent (`sendmail`), optional |
 | Application build | Not buildable from application source |
 | Helm | chart `oci://registry-1.docker.io/wodby/stateless`; version `0.2.1` |
-| Configuration and operations | 7 settings, 1 integration slots, 1 volumes, 1 actions |
+| Configuration and operations | 8 settings, 1 integration slots, 1 volumes, 1 actions |
 
 ## Use this service
 
@@ -51,11 +51,16 @@ three Active Record encryption keys when an app is created.
 
 ## First administrator
 
-After the first deployment, open the app's main domain. Chatwoot redirects to
-`/installation/onboarding`, where the first person creates the super admin
-account and the first Chatwoot account. Finish this right away: the page is
-open to anyone who can reach the address until it is submitted. It does not
-depend on the **Account signup** setting or on mail delivery.
+Wodby creates the first super admin and the first Chatwoot account at the end of
+the deployment, so the app does not rely on Chatwoot's onboarding page and that
+page closes. Sign in at the app's main domain with **Admin email** and the
+`admin_password` token from **Configuration > Tokens**. No mail is needed.
+
+**Admin email** is a required setting. Replace its `admin@example.com`
+placeholder with your own address when you create the app, because Chatwoot sends
+password resets to it. The action runs on every deployment and creates nothing
+when a super admin already exists. An environment upgraded before anyone finished
+onboarding gets its administrator the same way. See `GUIDANCE.md`.
 
 ## Object storage
 

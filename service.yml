@@ -30,6 +30,16 @@ settings:
     allow API signup only
   default: 'false'
   var: ENABLE_ACCOUNT_SIGNUP
+# The default keeps stack upgrades working: a required setting with no value
+# stops the deployment that follows an upgrade. It is used only when no super
+# admin exists yet.
+- name: admin_email
+  title: Admin email
+  description: Sign-in email of the first Chatwoot administrator. Replace the 
+    placeholder with your own address. Used only when no administrator exists.
+  required: true
+  default: admin@example.com
+  var: CHATWOOT_ADMIN_EMAIL
 - name: default_locale
   title: Default locale
   default: en
@@ -77,6 +87,8 @@ env:
   value: '{{ar_deterministic_key}}'
 - name: ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT
   value: '{{ar_key_derivation_salt}}'
+- name: CHATWOOT_ADMIN_PASSWORD
+  value: '{{admin_password}}'
 
 links:
 - name: db
@@ -135,6 +147,46 @@ tokens:
 - name: ar_key_derivation_salt
   generate:
     regex: '[A-Za-z0-9]{32}'
+# Chatwoot requires an upper-case letter, a lower-case letter, a number and a
+# special character, so the first 16 characters guarantee one group of each.
+- name: admin_password
+  generate:
+    regex: '[A-Z]{4}[a-z]{4}[0-9]{4}[!@#%_-]{4}[A-Za-z0-9!@#%_-]{16}'
+
+# Runs after the rollout, so the web container has already prepared the
+# database. Safe on every deployment: it creates the administrator only when no
+# super admin exists, and then it closes the onboarding page.
+actions:
+- name: create_admin
+  title: Create the first administrator
+  type: post_deploy
+  args:
+  - bundle
+  - exec
+  - rails
+  - runner
+  - |
+    email = ENV.fetch('CHATWOOT_ADMIN_EMAIL', '').strip.downcase
+    password = ENV.fetch('CHATWOOT_ADMIN_PASSWORD', '')
+    if SuperAdmin.exists?
+      puts 'A super admin already exists. No administrator created.'
+    elsif email.empty? || password.empty?
+      puts 'Warning: Admin email or the generated password is empty. No administrator created.'
+      exit
+    elsif User.exists?(email: email)
+      puts "Warning: #{email} already belongs to a user who is not a super admin. No administrator created."
+    else
+      AccountBuilder.new(
+        account_name: 'Chatwoot',
+        user_full_name: 'Administrator',
+        email: email,
+        user_password: password,
+        super_admin: true,
+        confirmed: true
+      ).perform
+      puts "Created the first administrator: #{email}"
+    end
+    Redis::Alfred.delete(Redis::Alfred::CHATWOOT_INSTALLATION_ONBOARDING)
 
 volumes:
 - name: storage
