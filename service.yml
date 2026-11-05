@@ -315,6 +315,10 @@ workloads:
   containers:
   - name: chatwoot
     image: chatwoot/chatwoot
+    resources:
+      request:
+        cpu: 110
+        memory: 368
     helm:
       resources: resources
       env: envVars
