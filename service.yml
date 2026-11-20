@@ -12,6 +12,7 @@ labels:
 options:
 - version: '4.17'
   tag: 'v4.17.1'
+  digest: sha256:2116d958b52380ff3a609ad6b58db4a673b7733c31897771955b25350499ef06
   default: true
 
 endpoints:
@@ -26,8 +27,7 @@ endpoints:
 settings:
 - name: account_signup
   title: Account signup
-  description: Set to false to disable public account signup or api_only to 
-    allow API signup only
+  description: Set to false to disable public account signup or api_only to allow API signup only
   default: 'false'
   var: ENABLE_ACCOUNT_SIGNUP
 # The default keeps stack upgrades working: a required setting with no value
@@ -35,8 +35,7 @@ settings:
 # admin exists yet.
 - name: admin_email
   title: Admin email
-  description: Sign-in email of the first Chatwoot administrator. Replace the 
-    placeholder with your own address. Used only when no administrator exists.
+  description: Sign-in email of the first Chatwoot administrator. Replace the placeholder with your own address. Used only when no administrator exists.
   required: true
   default: admin@example.com
   var: CHATWOOT_ADMIN_EMAIL
